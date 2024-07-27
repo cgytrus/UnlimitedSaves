@@ -6,6 +6,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyTitle>Unlimited Saves</AssemblyTitle>
     <AssemblyVersion>1.0.0</AssemblyVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <Target Name="SetupRemixFolder" AfterTargets="AfterBuild">
     <Copy SourceFiles="$(OutDir)/UnlimitedSaves.dll;$(OutDir)/UnlimitedSaves.pdb" DestinationFolder="unlimited-saves/plugins" />
