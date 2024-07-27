@@ -5,6 +5,8 @@ using RWCustom;
 using UnityEngine;
 using global::Menu;
 using Kittehface.Framework20;
+using Menu.Remix;
+using Menu.Remix.MixedUI;
 
 namespace UnlimitedSaves.Menu;
 
@@ -13,6 +15,8 @@ using ProgressionLoadResult = PlayerProgression.ProgressionLoadResult;
 
 public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckBox.IOwnCheckBox {
     public static readonly ProcessManager.ProcessID id = new($"{nameof(SavesMenu)}+{Plugin.Id}", true);
+
+    private class DummyOi : OptionInterface;
 
     private readonly FSprite _darkSprite;
     private readonly SimpleButton _backButton;
@@ -38,7 +42,9 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private bool _shouldDeleteSave;
 
+    private readonly OpTextBox _saveNameInput;
     private MenuLabel _infoLabel;
+    private string _infoDefaultText;
 
     public SavesMenu(ProcessManager manager) : base(manager, id) {
         pages.Add(new Page(this, null, "main", 0));
@@ -72,7 +78,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             Vector2.zero, false) { label = { alpha = 0f, anchorY = 1f } };
         pages[0].subObjects.Add(_buttonsLoadingLabel);
 
-        float saveSlotButtonWidth = OptionsMenu.GetSaveSlotButtonWidth(CurrLang);
+        float saveSlotButtonWidth = OptionsMenu.GetSaveSlotButtonWidth(CurrLang) * 2f;
         _resetButton = new HoldButton(this, pages[0],
             Translate("RESET PROGRESS").Replace("<LINE>", "\r\n"), "RESET PROGRESS",
             new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 55f + 15f + 20f, 680f - 55f), 400f
@@ -102,8 +108,25 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _deleteCheckbox.label.label.alignment = FLabelAlignment.Left;
         pages[0].subObjects.Add(_deleteCheckbox);
 
-        _infoLabel = new MenuLabel(this, pages[0], Translate("Loading..."), new Vector2(88f - 15f, 680f + 15f),
-            Vector2.zero, false);
+        MenuTabWrapper tabWrapper = new(this, pages[0]);
+        pages[0].subObjects.Add(tabWrapper);
+
+        _saveNameInput = new OpTextBox(
+            new DummyOi().config.Bind(null, ""),
+            new Vector2(70f + 60f, 680f - 24f),
+            saveSlotButtonWidth
+        );
+        _ = new UIelementWrapper(tabWrapper, _saveNameInput);
+        _saveNameInput.accept = OpTextBox.Accept.StringASCII;
+        _saveNameInput.allowSpace = true;
+
+        _infoLabel = new MenuLabel(this, pages[0],
+            $"{Translate("Name")}:\n\n\n{Translate("Loading...")}",
+            new Vector2(70f, 680f - 4f),
+            Vector2.zero,
+            false
+        );
+        _infoDefaultText = _infoLabel.label.text;
         _infoLabel.label.SetAnchor(0f, 1f);
         _infoLabel.label.alignment = FLabelAlignment.Left;
         pages[0].subObjects.Add(_infoLabel);
@@ -117,7 +140,9 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             SetCurrentlySelectedOfSeries("SaveSlot", 0);
     }
 
-    private string GetSaveSlotName(int slot) => $"{Translate("SAVE SLOT")} {slot + 1}";
+    private string GetSaveSlotName(int slot) =>
+        Plugin.saveNames.TryGetValue(slot, out string name) && !string.IsNullOrWhiteSpace(name) ?
+            name : $"{Translate("SAVE SLOT")} {slot + 1}";
 
     public int GetCurrentlySelectedOfSeries(string series) => series switch {
         "SaveSlot" => manager.rainWorld.options.saveSlot,
@@ -134,6 +159,8 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
                 manager.rainWorld.progression.Destroy(_leavingSaveSlot);
                 manager.rainWorld.progression = new PlayerProgression(manager.rainWorld, true, false);
                 _waitingOnProgressionLoaded = true;
+                _saveNameInput.value =
+                    Plugin.saveNames.TryGetValue(manager.rainWorld.options.saveSlot, out string name) ? name ?? "" : "";
                 break;
         }
     }
@@ -155,17 +182,37 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         base.Update();
 
         UpdateHandleBackButton();
+        UpdateHandleSaveSlotChange();
+        UpdateHandleResetButton();
+        UpdateHandleSaveName();
 
-        if (_waitingOnProgressionLoaded && manager.rainWorld.progression.progressionLoaded) {
-            ProgressionLoadResult res = manager.rainWorld.progression.progressionLoadedResult;
-            if (res is ProgressionLoadResult.SUCCESS_CREATE_NEW_FILE
-                or ProgressionLoadResult.SUCCESS_LOAD_EXISTING_FILE
-                or ProgressionLoadResult.ERROR_SAVE_DATA_MISSING)
-                HandleSaveSlotChangeSucceeded(res);
-            else
-                HandleSaveSlotChangeFailed(res);
-        }
+        _backButton.buttonBehav.greyedOut = progressionBusy;
 
+        foreach (SelectOneButton button in _saveButtons)
+            button.buttonBehav.greyedOut = progressionBusy;
+        _resetButton.buttonBehav.greyedOut = progressionBusy;
+    }
+
+    private void UpdateHandleBackButton() {
+        bool pause = RWInput.CheckPauseButton(0);
+        if (pause && !_lastPauseButton && manager.dialog == null && !_backButton.buttonBehav.greyedOut)
+            Singal(_backButton, _backButton.signalText);
+        _lastPauseButton = pause;
+    }
+
+    private void UpdateHandleSaveSlotChange() {
+        if (!_waitingOnProgressionLoaded || !manager.rainWorld.progression.progressionLoaded)
+            return;
+        ProgressionLoadResult res = manager.rainWorld.progression.progressionLoadedResult;
+        if (res is ProgressionLoadResult.SUCCESS_CREATE_NEW_FILE
+            or ProgressionLoadResult.SUCCESS_LOAD_EXISTING_FILE
+            or ProgressionLoadResult.ERROR_SAVE_DATA_MISSING)
+            HandleSaveSlotChangeSucceeded(res);
+        else
+            HandleSaveSlotChangeFailed(res);
+    }
+
+    private void UpdateHandleResetButton() {
         if (_resetButton.FillingUp) {
             _resetWarningTextCounter++;
             _resetWarningTextAlpha = Custom.LerpAndTick(_resetWarningTextAlpha, 1f, 0.08f, 0.025f);
@@ -182,19 +229,20 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         );
         MenuLabel otherResetWarningText = !_shouldDeleteSave ? _deleteWarningText : _resetWarningText;
         otherResetWarningText.label.alpha = 0f;
-
-        _backButton.buttonBehav.greyedOut = progressionBusy;
-
-        foreach (SelectOneButton button in _saveButtons)
-            button.buttonBehav.greyedOut = progressionBusy;
-        _resetButton.buttonBehav.greyedOut = progressionBusy;
     }
 
-    private void UpdateHandleBackButton() {
-        bool pause = RWInput.CheckPauseButton(0);
-        if (pause && !_lastPauseButton && manager.dialog == null && !_backButton.buttonBehav.greyedOut)
-            Singal(_backButton, _backButton.signalText);
-        _lastPauseButton = pause;
+    private void UpdateHandleSaveName() {
+        int slot = manager.rainWorld.options.saveSlot;
+        if (!_saveNameInput._KeyboardOn) {
+            _saveNameInput.label.text = GetSaveSlotName(slot);
+            return;
+        }
+        _saveNameInput.label.text = Plugin.saveNames.TryGetValue(slot, out string name) ? name ?? "" : "";
+        if (string.IsNullOrWhiteSpace(_saveNameInput.value))
+            Plugin.saveNames.Remove(slot);
+        else
+            Plugin.saveNames[slot] = _saveNameInput.value;
+        _saveButtons[slot].menuLabel.text = GetSaveSlotName(slot);
     }
 
     private void UpdateButtons() {
@@ -232,7 +280,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
         _saveButtons = new SelectOneButton[maxSlot + 2];
 
-        Vector2 size = new(OptionsMenu.GetSaveSlotButtonWidth(CurrLang), 30f);
+        Vector2 size = new(OptionsMenu.GetSaveSlotButtonWidth(CurrLang) * 2f, 30f);
         for (int i = 0; i < _saveButtons.Length; i++) {
             Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
             string name = GetSaveSlotName(i);
@@ -282,6 +330,8 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
                 manager.rainWorld.progression = new PlayerProgression(manager.rainWorld, true, false);
                 _waitingOnProgressionLoaded = true;
                 _leavingSaveSlot = -1;
+                _saveNameInput.value =
+                    Plugin.saveNames.TryGetValue(manager.rainWorld.options.saveSlot, out string name) ? name ?? "" : "";
             }
         );
         manager.rainWorld.processManager.ShowDialog(dialog);
@@ -333,6 +383,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private void DeleteSave() {
         Plugin.logger.LogInfo("deleting save");
+        Plugin.saveNames.Remove(manager.rainWorld.options.saveSlot);
         Plugin.logger.LogDebug("deleting expCore (expedition)");
         string path = Path.Combine(Application.persistentDataPath, $"expCore{manager.rainWorld.options.saveSlot + 1}");
         if (File.Exists(path))

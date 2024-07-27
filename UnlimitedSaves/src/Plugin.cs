@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
 using Menu;
 using Mono.Cecil.Cil;
@@ -15,6 +17,7 @@ public partial class Plugin : BaseUnityPlugin {
     private static Plugin? _instance;
 
     public static ManualLogSource logger => _instance!.Logger;
+    public static Dictionary<int, string> saveNames { get; } = new();
 
     private Plugin() => _instance = this;
 
@@ -54,5 +57,38 @@ public partial class Plugin : BaseUnityPlugin {
                 self.currentMainLoop = new SavesMenu(self);
             orig(self, id);
         };
+
+        On.Options.ApplyOption += LoadSaveName;
+        On.Options.ToString += SaveSaveNames;
     }
+
+    private static bool LoadSaveName(On.Options.orig_ApplyOption orig, Options self, string[] split) {
+        bool unrecognized = orig(self, split);
+        if (!unrecognized)
+            return false;
+        string key = split[0];
+        if (key != "unlimitedsaves:name")
+            return true;
+        string[] kv = split[1].Split(',');
+        if (!int.TryParse(kv[0], out int slot))
+            return true;
+        try {
+            string name = Base64Decode(kv[1]);
+            saveNames[slot] = name;
+        }
+        catch { return true; }
+        return false;
+    }
+
+    private static string SaveSaveNames(On.Options.orig_ToString orig, Options self) {
+        string ret = orig(self);
+        return saveNames.Aggregate(ret,
+            (current, kv) => current + $"unlimitedsaves:name<optB>{kv.Key},{Base64Encode(kv.Value)}<optA>");
+    }
+
+    // https://stackoverflow.com/a/11743162
+    private static string Base64Encode(string plainText) => Convert.ToBase64String(Encoding.UTF8.GetBytes(plainText));
+
+    private static string Base64Decode(string base64EncodedData) =>
+        Encoding.UTF8.GetString(Convert.FromBase64String(base64EncodedData));
 }
