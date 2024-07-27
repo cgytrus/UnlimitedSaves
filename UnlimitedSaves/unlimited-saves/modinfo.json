@@ -1,0 +1,14 @@
+﻿{
+    "id": "cgytrus.unlimited-saves",
+    "name": "Unlimited Saves",
+    "version": "1.0.0",
+    "target_game_version": "v1.9.15b",
+    "authors": "ConfiG",
+    "description": "",
+    "youtube_trailer_id": "",
+    "requirements": [],
+    "requirements_names": [],
+    "priorities": [],
+    "tags": [],
+    "checksum_override_version": true
+}

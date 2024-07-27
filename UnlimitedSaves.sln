@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnlimitedSaves", "UnlimitedSaves\UnlimitedSaves.csproj", "{5F44EB7D-1F2E-4214-9281-592F2EA9EA3A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3AAFE058-870C-4197-8325-AFFD447412F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AAFE058-870C-4197-8325-AFFD447412F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AAFE058-870C-4197-8325-AFFD447412F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AAFE058-870C-4197-8325-AFFD447412F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F44EB7D-1F2E-4214-9281-592F2EA9EA3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F44EB7D-1F2E-4214-9281-592F2EA9EA3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F44EB7D-1F2E-4214-9281-592F2EA9EA3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F44EB7D-1F2E-4214-9281-592F2EA9EA3A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
