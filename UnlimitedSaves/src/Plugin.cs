@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using BepInEx;
@@ -58,8 +59,33 @@ public partial class Plugin : BaseUnityPlugin {
             orig(self, id);
         };
 
+        // vanilla backups only a select few hardcoded files, so we take the matters in our own hands
+        On.PlayerProgression.CreateCopyOfSaves_bool += BackupFix;
+
         On.Options.ApplyOption += LoadSaveName;
         On.Options.ToString += SaveSaveNames;
+    }
+
+    private static void BackupFix(On.PlayerProgression.orig_CreateCopyOfSaves_bool orig, PlayerProgression self,
+        bool userCreated) {
+        orig(self, userCreated);
+        double totalSeconds = (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+        string dir = Path.Combine(Application.persistentDataPath, "backup", $"{(long)totalSeconds}_{DateTime.Now:yyyy-MM-dd_HH-mm}");
+        if (userCreated)
+            dir += "_USR";
+        foreach (string filePath in Directory.GetFiles(Application.persistentDataPath)) {
+            string file = Path.GetFileName(filePath);
+            // ignore files already backed up by vanilla
+            bool isSav = file.StartsWith("sav", StringComparison.Ordinal);
+            bool isExpCore = file.StartsWith("expCore", StringComparison.Ordinal);
+            bool isExp = !isExpCore && file.StartsWith("exp", StringComparison.Ordinal);
+            isSav = isSav && int.TryParse(file.Substring(3), out int slot) && slot > 3;
+            isExpCore = isExpCore && int.TryParse(file.Substring(7), out slot) && slot > 3;
+            isExp = isExp && int.TryParse(file.Substring(3), out slot) && slot > 1;
+            if (!isSav && !isExpCore && !isExp)
+                continue;
+            self.CopySaveFile(file, dir);
+        }
     }
 
     private static bool LoadSaveName(On.Options.orig_ApplyOption orig, Options self, string[] split) {
