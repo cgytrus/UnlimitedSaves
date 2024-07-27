@@ -420,6 +420,9 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             return Translate("Hold down to wipe your save slot and start over");
         if (selectedObject == _deleteCheckbox)
             return Translate("Enable to fully delete the selected save slot instead of wiping it");
+        // shut up im too lazy to implement this properly rn
+        if (selectedObject is SelectOneButton oneButt && oneButt.labelColor.rgb != MenuColor(MenuColors.MediumGrey).rgb)
+            return Translate("Create new save file");
         return base.UpdateInfoText();
     }
 
