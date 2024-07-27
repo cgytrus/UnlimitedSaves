@@ -245,17 +245,19 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveButtons[slot].menuLabel.text = GetSaveSlotName(slot);
     }
 
-    private void UpdateButtons() {
+    private void UpdateButtons(bool noCreate = false) {
         if (UserData.Busy)
             return;
 
-        foreach (SelectOneButton button in _saveButtons) {
-            pages[0].RemoveSubObject(button);
-            button.RemoveSprites();
-        }
-        _saveButtons = [];
+        if (!noCreate) {
+            foreach (SelectOneButton button in _saveButtons) {
+                pages[0].RemoveSubObject(button);
+                button.RemoveSprites();
+            }
+            _saveButtons = [];
 
-        _buttonsLoadingLabel.label.alpha = 1f;
+            _buttonsLoadingLabel.label.alpha = 1f;
+        }
 
         UserData.Search(Profiles.ActiveProfiles[0], "sav*");
         UserData.OnSearchCompleted += UserDataOnSearchCompleted;
@@ -265,7 +267,10 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         UserData.Result c) {
         UserData.OnSearchCompleted -= UserDataOnSearchCompleted;
 
-        _buttonsLoadingLabel.label.alpha = 0f;
+        bool noCreate = _saveButtons.Length != 0;
+
+        if (!noCreate)
+            _buttonsLoadingLabel.label.alpha = 0f;
 
         HashSet<int> existing = [ 0 ];
         int maxSlot = manager.rainWorld.options.saveSlot;
@@ -273,31 +278,32 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             if (!int.TryParse(result.fileDefinition.fileName.Substring(3), out int slot))
                 continue;
             --slot;
-            if (slot > maxSlot)
-                maxSlot = slot;
+            maxSlot = Math.Max(slot, maxSlot);
             existing.Add(slot);
         }
 
-        _saveButtons = new SelectOneButton[maxSlot + 2];
+        if (!noCreate)
+            _saveButtons = new SelectOneButton[maxSlot + 2];
 
         Vector2 size = new(OptionsMenu.GetSaveSlotButtonWidth(CurrLang) * 2f, 30f);
         for (int i = 0; i < _saveButtons.Length; i++) {
-            Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
-            string name = GetSaveSlotName(i);
+            if (!noCreate) {
+                Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
+                string name = GetSaveSlotName(i);
+                _saveButtons[i] = new SelectOneButton(this, pages[0], name, "SaveSlot", pos, size, _saveButtons, i);
+                pages[0].subObjects.Add(_saveButtons[i]);
+            }
 
-            _saveButtons[i] = new SelectOneButton(this, pages[0], name, "SaveSlot", pos, size, _saveButtons, i);
-            pages[0].subObjects.Add(_saveButtons[i]);
-
-            if (!existing.Contains(i))
-                _saveButtons[i].labelColor = new HSLColor(120f / 360f, 0.65f, 0.5f);
+            _saveButtons[i].labelColor = existing.Contains(i) ?
+                MenuColor(MenuColors.MediumGrey) :
+                new HSLColor(120f / 360f, 0.65f, 0.5f);
         }
     }
 
     private void HandleSaveSlotChangeSucceeded(ProgressionLoadResult result) {
         Plugin.logger.LogDebug($"succeeded changing save slot: {result}");
         _waitingOnProgressionLoaded = false;
-        if (_saveButtons[_saveButtons.Length - 1].AmISelected)
-            UpdateButtons();
+        UpdateButtons(!_saveButtons[_saveButtons.Length - 1].AmISelected);
     }
 
     private void HandleSaveSlotChangeFailed(ProgressionLoadResult result) {
