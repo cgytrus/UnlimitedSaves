@@ -4,11 +4,7 @@
     "version": "1.0.0",
     "target_game_version": "v1.9.15b",
     "authors": "ConfiG",
-    "description": "",
-    "youtube_trailer_id": "",
-    "requirements": [],
-    "requirements_names": [],
-    "priorities": [],
-    "tags": [],
-    "checksum_override_version": true
+    "description": "Adds a \"Saves\" menu that allows you to quickly change and inspect save slots with ability to create more than 3.",
+    "tags": ["Tools"],
+    "checksum_override_version": false
 }
