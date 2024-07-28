@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "target_game_version": "v1.9.15b",
     "authors": "ConfiG",
-    "description": "Adds a \"Saves\" menu that allows you to quickly change and inspect save slots with ability to create more than 3.",
+    "description": "Adds a \"Saves\" menu that allows you to quickly change and inspect save slots with ability to create more than 3.\nSource code: https://github.com/cgytrus/UnlimitedSaves",
     "tags": ["Tools"],
     "checksum_override_version": false
 }
