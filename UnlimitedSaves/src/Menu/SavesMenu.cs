@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using RWCustom;
 using UnityEngine;
 using global::Menu;
 using Kittehface.Framework20;
 using Menu.Remix;
 using Menu.Remix.MixedUI;
+using MoreSlugcats;
+using DyeableRect = MoreSlugcats.DyeableRect;
 
 namespace UnlimitedSaves.Menu;
 
@@ -42,9 +45,69 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private bool _shouldDeleteSave;
 
+    private class SlugcatInfoCard : PositionedMenuObject {
+        public SlugcatInfoCard(Menu.Menu menu, MenuObject owner, Vector2 pos, SlugcatStats.Name slugcat) :
+            base(menu, owner, pos) {
+            SlugcatSelectMenu.SaveGameData data = SlugcatSelectMenu.MineForSaveData(menu.manager, slugcat);
+
+            const float scale = 0.6f;
+            DyeableRect illustrationRect = new(menu, this, new Vector2(0f, -100f) * scale,
+                new Vector2(100f, 100f) * scale, false);
+            if (data.ascended && data.altEnding)
+                illustrationRect.color = Color.magenta;
+            else if (data.ascended)
+                illustrationRect.color = Color.yellow;
+            else if (data.altEnding)
+                illustrationRect.color = Color.cyan;
+            MenuIllustration illustration = new(menu, this, "", slugcat.value switch {
+                nameof(SlugcatStats.Name.Yellow) => "multiplayerportrait11-yellow",
+                nameof(SlugcatStats.Name.White) => "multiplayerportrait01-white",
+                nameof(SlugcatStats.Name.Red) => data.redsDeath ? "multiplayerportrait20-red" : "multiplayerportrait21-red",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Rivulet) => "multiplayerportrait41-rivulet",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Artificer) => "multiplayerportrait41-artificer",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Spear) => "multiplayerportrait41-spear",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Gourmand) => "multiplayerportrait41-gourmand",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Saint) => "multiplayerportrait41-saint",
+                _ => "multiplayerportrait02"
+            }, new Vector2(50f, -50f) * scale, false, true);
+            illustration.size *= scale;
+            illustration.sprite.scale *= scale;
+            illustrationRect.subObjects.Add(illustration);
+            subObjects.Add(illustrationRect);
+
+            IntVector2 maxFood = SlugcatStats.SlugcatFoodMeter(slugcat);
+            string karmaData = $"{data.karma + 1}{(data.karmaReinforced ? "X" : "")}/{data.karmaCap + 1}";
+            string foodData = $"{data.food}/{maxFood.y}/{maxFood.x}";
+
+            string defaultMiscData = $"{(data.hasGlow ? "glow" : "-")}  {(data.hasMark ? "mark" : "-")}  {(data.moonGivenRobe ? "robe" : "-")}";
+            string miscData = slugcat.value switch {
+                nameof(SlugcatStats.Name.Red) => $"{defaultMiscData}  {(data.redsExtraCycles ? "+cycles" : "-")}  {(data.redsDeath ? "dead" : "-")}",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Rivulet) => $"{defaultMiscData}  {(data.pebblesEnergyTaken ? "orb" : "-")}",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Artificer) => $"{defaultMiscData}  {(data.hasRobo ? "robo" : "-")}",
+                _ => defaultMiscData
+            };
+
+            TimeSpan aliveTime = TimeSpan.FromSeconds(data.gameTimeAlive);
+            TimeSpan deadTime = TimeSpan.FromSeconds(data.gameTimeDead);
+            string alive = SpeedRunTimer.TimeFormat(aliveTime);
+            string dead = SpeedRunTimer.TimeFormat(deadTime);
+            string total = SpeedRunTimer.TimeFormat(aliveTime + deadTime);
+
+            string text = $"""
+                          k{karmaData}  f{foodData}  c{data.cycle}  s{data.shelterName}
+                          {miscData}
+                          a{alive} + d{dead} = {total}
+                          """;
+
+            MenuLabel label = new(menu, this, text, new Vector2(100f * scale + 10f, -100f * scale),
+                new Vector2(0f, 100f * scale), false) { label = { alignment = FLabelAlignment.Left } };
+            subObjects.Add(label);
+        }
+    }
+
     private readonly OpTextBox _saveNameInput;
-    private MenuLabel _infoLabel;
-    private string _infoDefaultText;
+    private readonly MenuLabel _saveNameInputLabel;
+    private readonly List<SlugcatInfoCard> _slugcatInfoCards = [];
 
     public SavesMenu(ProcessManager manager) : base(manager, id) {
         pages.Add(new Page(this, null, "main", 0));
@@ -120,18 +183,18 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveNameInput.accept = OpTextBox.Accept.StringASCII;
         _saveNameInput.allowSpace = true;
 
-        _infoLabel = new MenuLabel(this, pages[0],
-            $"{Translate("Name")}:\n\n\n{Translate("Loading...")}",
+        _saveNameInputLabel = new MenuLabel(this, pages[0],
+            $"{Translate("Name")}:",
             new Vector2(70f, 680f - 4f),
             Vector2.zero,
             false
         );
-        _infoDefaultText = _infoLabel.label.text;
-        _infoLabel.label.SetAnchor(0f, 1f);
-        _infoLabel.label.alignment = FLabelAlignment.Left;
-        pages[0].subObjects.Add(_infoLabel);
+        _saveNameInputLabel.label.SetAnchor(0f, 1f);
+        _saveNameInputLabel.label.alignment = FLabelAlignment.Left;
+        pages[0].subObjects.Add(_saveNameInputLabel);
 
         UpdateButtons();
+        UpdateInfoCards();
 
         string saveDir = Application.persistentDataPath;
         if (manager.rainWorld.progression.saveFileDataInMemory.overrideBaseDir is not null)
@@ -263,6 +326,27 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         UserData.OnSearchCompleted += UserDataOnSearchCompleted;
     }
 
+    private void UpdateInfoCards() {
+        foreach (SlugcatInfoCard card in _slugcatInfoCards) {
+            pages[0].RemoveSubObject(card);
+            card.RemoveSprites();
+        }
+        _slugcatInfoCards.Clear();
+
+        string[] progLines = manager.rainWorld.progression.GetProgLinesFromMemory();
+        int index = 0;
+        foreach (string progLine in progLines) {
+            string[] split = Regex.Split(progLine, "<progDivB>");
+            if (split.Length != 2 || split[0] != "SAVE STATE")
+                continue;
+            SlugcatStats.Name slugcat = BackwardsCompatibilityRemix.ParseSaveNumber(split[1]);
+            SlugcatInfoCard card = new(this, pages[0],
+                new Vector2(_saveNameInputLabel.pos.x, _saveNameInput.pos.y - 10f - index++ * 70f), slugcat);
+            _slugcatInfoCards.Add(card);
+            pages[0].subObjects.Add(card);
+        }
+    }
+
     private void UserDataOnSearchCompleted(Profiles.Profile a, string b, List<UserData.SearchResult> results,
         UserData.Result c) {
         UserData.OnSearchCompleted -= UserDataOnSearchCompleted;
@@ -304,6 +388,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         Plugin.logger.LogDebug($"succeeded changing save slot: {result}");
         _waitingOnProgressionLoaded = false;
         UpdateButtons(!_saveButtons[_saveButtons.Length - 1].AmISelected);
+        UpdateInfoCards();
     }
 
     private void HandleSaveSlotChangeFailed(ProgressionLoadResult result) {
