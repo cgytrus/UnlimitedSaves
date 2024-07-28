@@ -36,6 +36,7 @@ public partial class Plugin : BaseUnityPlugin {
                 cursor.Emit(OpCodes.Ldc_I4, maxCount + 1);
             }
             catch (Exception ex) {
+                Logger.LogWarning("failed to increase main menu vertical buttons limit!");
                 Logger.LogError(ex);
             }
         };
@@ -43,6 +44,7 @@ public partial class Plugin : BaseUnityPlugin {
         On.Menu.MainMenu.ctor += (orig, self, manager, bkg) => {
             orig(self, manager, bkg);
             float buttonWidth = MainMenu.GetButtonWidth(self.CurrLang);
+            // TODO: custom text. needs translation
             SimpleButton button = new(
                 self, self.pages[0], self.Translate("SAVES"), "SAVES",
                 new Vector2(1366f / 2f - buttonWidth / 2f, 0f), new Vector2(buttonWidth, 30f)
@@ -73,6 +75,7 @@ public partial class Plugin : BaseUnityPlugin {
         string dir = Path.Combine(Application.persistentDataPath, "backup", $"{(long)totalSeconds}_{DateTime.Now:yyyy-MM-dd_HH-mm}");
         if (userCreated)
             dir += "_USR";
+        logger.LogInfo("backing up extra saves");
         foreach (string filePath in Directory.GetFiles(Application.persistentDataPath)) {
             string file = Path.GetFileName(filePath);
             // ignore files already backed up by vanilla
@@ -98,6 +101,7 @@ public partial class Plugin : BaseUnityPlugin {
         string[] kv = split[1].Split(',');
         if (!int.TryParse(kv[0], out int slot))
             return true;
+        logger.LogInfo($"loading save name for slot {slot}");
         try {
             string name = Base64Decode(kv[1]);
             saveNames[slot] = name;
@@ -108,6 +112,7 @@ public partial class Plugin : BaseUnityPlugin {
 
     private static string SaveSaveNames(On.Options.orig_ToString orig, Options self) {
         string ret = orig(self);
+        logger.LogInfo("saving save names");
         return saveNames.Aggregate(ret,
             (current, kv) => current + $"unlimitedsaves:name<optB>{kv.Key},{Base64Encode(kv.Value)}<optA>");
     }

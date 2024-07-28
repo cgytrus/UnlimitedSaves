@@ -31,6 +31,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private bool progressionBusy => _waitingOnProgressionLoaded || !manager.rainWorld.progression.progressionLoaded;
 
+    // TODO: make scrollable
     private SelectOneButton[] _saveButtons = [];
     private int _leavingSaveSlot;
     private bool _waitingOnProgressionLoaded;
@@ -43,11 +44,13 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
     private float _resetWarningTextAlpha;
     private readonly CheckBox _deleteCheckbox;
 
+    // TODO: options to reset specific campaigns and other save data like challenges expeditions etc
     private bool _shouldDeleteSave;
 
     private class SlugcatInfoCard : PositionedMenuObject {
         public SlugcatInfoCard(Menu.Menu menu, MenuObject owner, Vector2 pos, SlugcatStats.Name slugcat) :
             base(menu, owner, pos) {
+            Plugin.logger.LogInfo($"loading data for {slugcat} in slot {menu.manager.rainWorld.options.saveSlot}");
             SlugcatSelectMenu.SaveGameData data = SlugcatSelectMenu.MineForSaveData(menu.manager, slugcat);
 
             const float scale = 0.6f;
@@ -108,6 +111,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private readonly OpTextBox _saveNameInput;
     private readonly MenuLabel _saveNameInputLabel;
+    // TODO: make scrollable
     private readonly List<SlugcatInfoCard> _slugcatInfoCards = [];
 
     public SavesMenu(ProcessManager manager) : base(manager, id) {
@@ -157,6 +161,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         ) { label = { alignment = FLabelAlignment.Left } };
         pages[0].subObjects.Add(_resetWarningText);
 
+        // TODO: custom text. needs translation
         _deleteWarningText = new MenuLabel(this, pages[0],
             Translate("WARNING!!!<LINE>This will fully erase the selected save slot<LINE>without a way to recover it.<LINE>Proceed with caution!").Replace("<LINE>", "\r\n"),
             _resetWarningText.pos,
@@ -165,6 +170,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         ) { label = { alignment = _resetWarningText.label.alignment } };
         pages[0].subObjects.Add(_deleteWarningText);
 
+        // TODO: custom text. needs translation
         _deleteCheckbox = new CheckBox(this, pages[0], this,
             new Vector2(_resetButton.pos.x - 55f - 15f, _resetButton.pos.y - 55f - 15f - 30f), 50f,
             Translate("Delete save"), "DELETE SAVE", true
@@ -184,6 +190,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveNameInput.accept = OpTextBox.Accept.StringASCII;
         _saveNameInput.allowSpace = true;
 
+        // TODO: custom text? needs translation?
         _saveNameInputLabel = new MenuLabel(this, pages[0],
             $"{Translate("Name")}:",
             new Vector2(70f, 680f - 4f),
@@ -504,8 +511,10 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             return Translate("backups_description");
         if (selectedObject == _resetButton)
             return Translate("Hold down to wipe your save slot and start over");
+        // TODO: custom text. needs translation
         if (selectedObject == _deleteCheckbox)
             return Translate("Enable to fully delete the selected save slot instead of wiping it");
+        // TODO: custom text. needs translation
         // shut up im too lazy to implement this properly rn
         if (selectedObject is SelectOneButton oneButt && oneButt.labelColor.rgb != MenuColor(MenuColors.MediumGrey).rgb)
             return Translate("Create new save file");
