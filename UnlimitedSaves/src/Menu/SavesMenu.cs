@@ -53,6 +53,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             const float scale = 0.6f;
             DyeableRect illustrationRect = new(menu, this, new Vector2(0f, -100f) * scale,
                 new Vector2(100f, 100f) * scale, false);
+            // ReSharper disable once ConvertIfStatementToSwitchStatement
             if (data.ascended && data.altEnding)
                 illustrationRect.color = Color.magenta;
             else if (data.ascended)
@@ -141,7 +142,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             Vector2.zero, false) { label = { alpha = 0f, anchorY = 1f } };
         pages[0].subObjects.Add(_buttonsLoadingLabel);
 
-        float saveSlotButtonWidth = OptionsMenu.GetSaveSlotButtonWidth(CurrLang) * 2f;
+        const float saveSlotButtonWidth = 220f;
         _resetButton = new HoldButton(this, pages[0],
             Translate("RESET PROGRESS").Replace("<LINE>", "\r\n"), "RESET PROGRESS",
             new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 55f + 15f + 20f, 680f - 55f), 400f
@@ -369,7 +370,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         if (!noCreate)
             _saveButtons = new SelectOneButton[maxSlot + 2];
 
-        Vector2 size = new(OptionsMenu.GetSaveSlotButtonWidth(CurrLang) * 2f, 30f);
+        Vector2 size = new(220f, 30f);
         for (int i = 0; i < _saveButtons.Length; i++) {
             if (!noCreate) {
                 Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
