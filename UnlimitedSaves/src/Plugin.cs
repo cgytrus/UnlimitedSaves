@@ -44,7 +44,6 @@ public partial class Plugin : BaseUnityPlugin {
         On.Menu.MainMenu.ctor += (orig, self, manager, bkg) => {
             orig(self, manager, bkg);
             float buttonWidth = MainMenu.GetButtonWidth(self.CurrLang);
-            // TODO: custom text. needs translation
             SimpleButton button = new(
                 self, self.pages[0], self.Translate("SAVES"), "SAVES",
                 new Vector2(1366f / 2f - buttonWidth / 2f, 0f), new Vector2(buttonWidth, 30f)

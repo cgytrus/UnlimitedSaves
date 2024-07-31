@@ -1,0 +1,6 @@
+﻿SAVES|СОХРАНЕНИЯ
+WARNING!!!<LINE>This will fully erase the selected save slot<LINE>without a way to recover it.<LINE>Proceed with caution!|ВНИМАНИЕ!!!<LINE>Это полностью сотрёт весь прогресс в выбранной ячейке сохранения<LINE>без возможности восстановления.<LINE>Продолжайте с осторожностью!
+Delete save|Удалить сохранение
+Name|Имя
+Enable to fully delete the selected save slot instead of wiping it|Включите для полного удаления выбранной ячейки сохранения, вместо обычного сброса
+Create new save file|Создать новый файл сохранения
