@@ -16,7 +16,7 @@ namespace UnlimitedSaves.Menu;
 using Menu = global::Menu;
 using ProgressionLoadResult = PlayerProgression.ProgressionLoadResult;
 
-public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckBox.IOwnCheckBox {
+public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckBox.IOwnCheckBox, Slider.ISliderOwner {
     public static readonly ProcessManager.ProcessID id = new($"{nameof(SavesMenu)}+{Plugin.Id}", true);
 
     private class DummyOi : OptionInterface;
@@ -27,12 +27,11 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
     private bool _lastPauseButton;
     private bool _exiting;
 
-    private readonly MenuLabel _buttonsLoadingLabel;
-
     private bool progressionBusy => _waitingOnProgressionLoaded || !manager.rainWorld.progression.progressionLoaded;
 
-    // TODO: make scrollable
     private SelectOneButton[] _saveButtons = [];
+    private int _saveButtonsScroll;
+    private static readonly Slider.SliderID saveButtonsScrollBarId = new($"SaveButtonsScroll+{Plugin.Id}", true);
     private int _leavingSaveSlot;
     private bool _waitingOnProgressionLoaded;
     private bool _reportCorruptedDialogDisplaying;
@@ -142,14 +141,18 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             new Vector2(110f, 30f));
         pages[0].subObjects.Add(_backupsButton);
 
-        _buttonsLoadingLabel = new MenuLabel(this, pages[0], Translate("Loading..."), new Vector2(1366f / 2f, 680f),
-            Vector2.zero, false) { label = { alpha = 0f, anchorY = 1f } };
-        pages[0].subObjects.Add(_buttonsLoadingLabel);
-
         const float saveSlotButtonWidth = 220f;
+
+        VerticalSlider saveButtonsScrollBar = new(this, pages[0], "",
+            new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 5f, 768f - 680f - 30f),
+            new Vector2(0f, 680f - (768f - 680f)),
+            saveButtonsScrollBarId, true
+        );
+        pages[0].subObjects.Add(saveButtonsScrollBar);
+
         _resetButton = new HoldButton(this, pages[0],
             Translate("RESET PROGRESS").Replace("<LINE>", "\r\n"), "RESET PROGRESS",
-            new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 55f + 15f + 20f, 680f - 55f), 400f
+            new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 20f + 55f + 15f + 20f, 680f - 55f), 400f
         );
         pages[0].subObjects.Add(_resetButton);
 
@@ -201,14 +204,17 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveNameInputLabel.label.alignment = FLabelAlignment.Left;
         pages[0].subObjects.Add(_saveNameInputLabel);
 
-        UpdateButtons();
-        UpdateInfoCards();
-
         string saveDir = Application.persistentDataPath;
         if (manager.rainWorld.progression.saveFileDataInMemory.overrideBaseDir is not null)
             saveDir = manager.rainWorld.progression.saveFileDataInMemory.overrideBaseDir;
         if (!File.Exists(Path.Combine(saveDir, manager.rainWorld.progression.saveFileDataInMemory.filename)))
             SetCurrentlySelectedOfSeries("SaveSlot", 0);
+
+        UpdateButtons();
+        UpdateInfoCards();
+
+        // puts it in the middle
+        _saveButtonsScroll = 8 - manager.rainWorld.options.saveSlot;
     }
 
     private string GetSaveSlotName(int slot) =>
@@ -249,6 +255,12 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         }
     }
 
+    public override float ValueOfSlider(Slider slider) =>
+        1f - _saveButtonsScroll / Math.Min(16f - _saveButtons.Length, 0f);
+
+    public override void SliderSetValue(Slider slider, float f) =>
+        _saveButtonsScroll = Mathf.FloorToInt((1f - f) * Math.Min(16f - _saveButtons.Length, 0f));
+
     public override void Update() {
         base.Update();
 
@@ -262,6 +274,40 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         foreach (SelectOneButton button in _saveButtons)
             button.buttonBehav.greyedOut = progressionBusy;
         _resetButton.buttonBehav.greyedOut = progressionBusy;
+    }
+
+    public override void GrafUpdate(float timeStacker) {
+        base.GrafUpdate(timeStacker);
+
+        // vanilla scroll handling is ass because it does it in update. incredible.
+        // i do it in grafupdate because i do not want to go insane using my own mod.
+
+        if (manager.menuesMouseMode) {
+            if (mousePosition.x is >= 1366f / 2f - 220f / 2f and <= 1366f / 2f + 220f / 2f)
+                _saveButtonsScroll += (int)Input.mouseScrollDelta.y;
+        }
+
+        for (int i = 0; i < _saveButtons.Length; i++) {
+            int index = i + _saveButtonsScroll;
+            if (_saveButtons[i].Selected && index is < 0 or >= 16)
+                _saveButtonsScroll = Mathf.Clamp(index, 0, 15) - i;
+        }
+
+        _saveButtonsScroll = Mathf.Clamp(_saveButtonsScroll, Math.Min(16 - _saveButtons.Length, 0), 0);
+
+        for (int i = 0; i < _saveButtons.Length; i++) {
+            SelectOneButton button = _saveButtons[i];
+            int index = i + _saveButtonsScroll;
+            // there is also no proper cutoff container
+            // (except OpScrollBox, which i cant use for my use case and it sucks anyway)
+            // and i cba to implement that myself
+            button.pos.y = index switch {
+                < 0 => 768f - index * 40f - button.size.y,
+                >= 16 => 680f - 40f - index * 40f - button.size.y,
+                _ => 680f - index * 40f - button.size.y
+            };
+            button.lastPos.y = button.pos.y;
+        }
     }
 
     private void UpdateHandleBackButton() {
@@ -317,21 +363,39 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
     }
 
     private void UpdateButtons(bool noCreate = false) {
-        if (UserData.Busy)
-            return;
+        string[] results = Directory.GetFiles(UserData.GetPersistentDataPath(), "sav*");
+
+        HashSet<int> existing = [ 0 ];
+        int maxSlot = manager.rainWorld.options.saveSlot;
+        foreach (string result in results) {
+            if (!int.TryParse(Path.GetFileName(result).Substring(3), out int slot))
+                continue;
+            --slot;
+            maxSlot = Math.Max(slot, maxSlot);
+            existing.Add(slot);
+        }
 
         if (!noCreate) {
             foreach (SelectOneButton button in _saveButtons) {
                 pages[0].RemoveSubObject(button);
                 button.RemoveSprites();
             }
-            _saveButtons = [];
-
-            _buttonsLoadingLabel.label.alpha = 1f;
+            _saveButtons = new SelectOneButton[maxSlot + 2];
         }
 
-        UserData.Search(Profiles.ActiveProfiles[0], "sav*");
-        UserData.OnSearchCompleted += UserDataOnSearchCompleted;
+        Vector2 size = new(220f, 30f);
+        for (int i = 0; i < _saveButtons.Length; i++) {
+            if (!noCreate) {
+                Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
+                string name = GetSaveSlotName(i);
+                _saveButtons[i] = new SelectOneButton(this, pages[0], name, "SaveSlot", pos, size, _saveButtons, i);
+                pages[0].subObjects.Add(_saveButtons[i]);
+            }
+
+            _saveButtons[i].labelColor = existing.Contains(i) ?
+                MenuColor(MenuColors.MediumGrey) :
+                new HSLColor(120f / 360f, 0.65f, 0.5f);
+        }
     }
 
     private void UpdateInfoCards() {
@@ -355,48 +419,14 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         }
     }
 
-    private void UserDataOnSearchCompleted(Profiles.Profile a, string b, List<UserData.SearchResult> results,
-        UserData.Result c) {
-        UserData.OnSearchCompleted -= UserDataOnSearchCompleted;
-
-        bool noCreate = _saveButtons.Length != 0;
-
-        if (!noCreate)
-            _buttonsLoadingLabel.label.alpha = 0f;
-
-        HashSet<int> existing = [ 0 ];
-        int maxSlot = manager.rainWorld.options.saveSlot;
-        foreach (UserData.SearchResult result in results) {
-            if (!int.TryParse(result.fileDefinition.fileName.Substring(3), out int slot))
-                continue;
-            --slot;
-            maxSlot = Math.Max(slot, maxSlot);
-            existing.Add(slot);
-        }
-
-        if (!noCreate)
-            _saveButtons = new SelectOneButton[maxSlot + 2];
-
-        Vector2 size = new(220f, 30f);
-        for (int i = 0; i < _saveButtons.Length; i++) {
-            if (!noCreate) {
-                Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
-                string name = GetSaveSlotName(i);
-                _saveButtons[i] = new SelectOneButton(this, pages[0], name, "SaveSlot", pos, size, _saveButtons, i);
-                pages[0].subObjects.Add(_saveButtons[i]);
-            }
-
-            _saveButtons[i].labelColor = existing.Contains(i) ?
-                MenuColor(MenuColors.MediumGrey) :
-                new HSLColor(120f / 360f, 0.65f, 0.5f);
-        }
-    }
-
     private void HandleSaveSlotChangeSucceeded(ProgressionLoadResult result) {
         Plugin.logger.LogDebug($"succeeded changing save slot: {result}");
         _waitingOnProgressionLoaded = false;
-        UpdateButtons(!_saveButtons[_saveButtons.Length - 1].AmISelected);
+        bool isLast = _saveButtons[_saveButtons.Length - 1].AmISelected;
+        UpdateButtons(!isLast);
         UpdateInfoCards();
+        if (isLast)
+            _saveButtonsScroll = 16 - _saveButtons.Length;
     }
 
     private void HandleSaveSlotChangeFailed(ProgressionLoadResult result) {
