@@ -7,3 +7,4 @@ riderModule.iml
 libs/
 *.DotSettings*
 /UnlimitedSaves/unlimited-saves/plugins/
+workshopdata.json
