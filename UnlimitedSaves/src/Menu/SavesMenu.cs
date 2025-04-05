@@ -9,6 +9,7 @@ using Kittehface.Framework20;
 using Menu.Remix;
 using Menu.Remix.MixedUI;
 using MoreSlugcats;
+using Watcher;
 using DyeableRect = MoreSlugcats.DyeableRect;
 
 namespace UnlimitedSaves.Menu;
@@ -67,17 +68,27 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
                 illustrationRect.color = Color.yellow;
             else if (data.altEnding)
                 illustrationRect.color = Color.cyan;
-            MenuIllustration illustration = new(menu, this, "", slugcat.value switch {
+            string illustrationName = slugcat.value switch {
                 nameof(SlugcatStats.Name.Yellow) => "multiplayerportrait11-yellow",
                 nameof(SlugcatStats.Name.White) => "multiplayerportrait01-white",
                 nameof(SlugcatStats.Name.Red) => data.redsDeath ? "multiplayerportrait20-red" : "multiplayerportrait21-red",
+                nameof(SlugcatStats.Name.Night) => "multiplayerportrait41-night",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Rivulet) => "multiplayerportrait41-rivulet",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Artificer) => "multiplayerportrait41-artificer",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Spear) => "multiplayerportrait41-spear",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Gourmand) => "multiplayerportrait41-gourmand",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Saint) => "multiplayerportrait41-saint",
+                nameof(MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel) => "multiplayerportrait41-inv",
+                nameof(WatcherEnums.SlugcatStatsName.Watcher) => "multiplayerportrait41-watcher",
                 _ => "multiplayerportrait02"
-            }, new Vector2(50f, -50f) * Scale, false, true);
+            };
+            if (!Futile.atlasManager.DoesContainElementWithName(illustrationName) &&
+                !File.Exists(AssetManager.ResolveFilePath(Path.Combine("Illustrations", $"{illustrationName}.png")))) {
+                illustrationName = "multiplayerportrait02";
+            }
+            MenuIllustration illustration = new(
+                menu, this, "", illustrationName, new Vector2(50f, -50f) * Scale, false, true
+            );
             illustration.size *= Scale;
             illustration.sprite.scale *= Scale;
             illustrationRect.subObjects.Add(illustration);
