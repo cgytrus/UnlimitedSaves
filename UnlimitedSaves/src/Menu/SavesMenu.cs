@@ -29,6 +29,8 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
 
     private bool progressionBusy => _waitingOnProgressionLoaded || !manager.rainWorld.progression.progressionLoaded;
 
+    private const int MaxShownSaveButtons = 16;
+    private const float SaveButtonWidth = 220f;
     private SelectOneButton[] _saveButtons = [];
     private int _saveButtonsScroll;
     private static readonly Slider.SliderID saveButtonsScrollBarId = new($"SaveButtonsScroll+{Plugin.Id}", true);
@@ -47,14 +49,17 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
     private bool _shouldDeleteSave;
 
     private class SlugcatInfoCard : PositionedMenuObject {
+        public const float Width = 100f * Scale + 10f + 274f; // text position + size
+        public const float Height = 100f * Scale;
+        private const float Scale = 0.6f;
+
         public SlugcatInfoCard(Menu.Menu menu, MenuObject owner, Vector2 pos, SlugcatStats.Name slugcat) :
             base(menu, owner, pos) {
             Plugin.logger.LogInfo($"loading data for {slugcat} in slot {menu.manager.rainWorld.options.saveSlot}");
             SlugcatSelectMenu.SaveGameData data = SlugcatSelectMenu.MineForSaveData(menu.manager, slugcat);
 
-            const float scale = 0.6f;
-            DyeableRect illustrationRect = new(menu, this, new Vector2(0f, -100f) * scale,
-                new Vector2(100f, 100f) * scale, false);
+            DyeableRect illustrationRect = new(menu, this, new Vector2(0f, -100f) * Scale,
+                new Vector2(100f, 100f) * Scale, false);
             // ReSharper disable once ConvertIfStatementToSwitchStatement
             if (data.ascended && data.altEnding)
                 illustrationRect.color = Color.magenta;
@@ -72,9 +77,9 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Gourmand) => "multiplayerportrait41-gourmand",
                 nameof(MoreSlugcatsEnums.SlugcatStatsName.Saint) => "multiplayerportrait41-saint",
                 _ => "multiplayerportrait02"
-            }, new Vector2(50f, -50f) * scale, false, true);
-            illustration.size *= scale;
-            illustration.sprite.scale *= scale;
+            }, new Vector2(50f, -50f) * Scale, false, true);
+            illustration.size *= Scale;
+            illustration.sprite.scale *= Scale;
             illustrationRect.subObjects.Add(illustration);
             subObjects.Add(illustrationRect);
 
@@ -102,16 +107,21 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
                           a{alive} + d{dead} = {total}
                           """;
 
-            MenuLabel label = new(menu, this, text, new Vector2(100f * scale + 10f, -100f * scale),
-                new Vector2(0f, 100f * scale), false) { label = { alignment = FLabelAlignment.Left } };
+            MenuLabel label = new(menu, this, text, new Vector2(100f * Scale + 10f, -100f * Scale),
+                new Vector2(0f, 100f * Scale), false) { label = { alignment = FLabelAlignment.Left } };
             subObjects.Add(label);
         }
     }
 
     private readonly OpTextBox _saveNameInput;
     private readonly MenuLabel _saveNameInputLabel;
-    // TODO: make scrollable
+
+    private const int MaxShownSlugcatInfoCards = 8;
     private readonly List<SlugcatInfoCard> _slugcatInfoCards = [];
+    private int _slugcatInfoCardsScroll;
+    private static readonly Slider.SliderID slugcatInfoCardsScrollBarId = new($"InfoCardsScroll+{Plugin.Id}", true);
+
+    private const float ScrollBarPadding = 8f;
 
     public SavesMenu(ProcessManager manager) : base(manager, id) {
         pages.Add(new Page(this, null, "main", 0));
@@ -141,18 +151,22 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             new Vector2(110f, 30f));
         pages[0].subObjects.Add(_backupsButton);
 
-        const float saveSlotButtonWidth = 220f;
-
         VerticalSlider saveButtonsScrollBar = new(this, pages[0], "",
-            new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 5f, 768f - 680f - 30f),
-            new Vector2(0f, 680f - (768f - 680f)),
+            new Vector2(
+                1366f / 2f + SaveButtonWidth / 2f + 5f,
+                680f - (MaxShownSaveButtons - 1) * 40f - 30f + ScrollBarPadding
+            ),
+            new Vector2(
+                0f,
+                (MaxShownSaveButtons - 1) * 40f + 30f - 20f - ScrollBarPadding * 2f
+            ),
             saveButtonsScrollBarId, true
         );
         pages[0].subObjects.Add(saveButtonsScrollBar);
 
         _resetButton = new HoldButton(this, pages[0],
             Translate("RESET PROGRESS").Replace("<LINE>", "\r\n"), "RESET PROGRESS",
-            new Vector2(1366f / 2f + saveSlotButtonWidth / 2f + 20f + 55f + 15f + 20f, 680f - 55f), 400f
+            new Vector2(1366f / 2f + SaveButtonWidth / 2f + 20f + 55f + 15f + 20f, 680f - 55f), 400f
         );
         pages[0].subObjects.Add(_resetButton);
 
@@ -185,7 +199,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveNameInput = new OpTextBox(
             new DummyOi().config.Bind(null, ""),
             new Vector2(70f + 60f, 680f - 24f),
-            saveSlotButtonWidth
+            SaveButtonWidth
         );
         _ = new UIelementWrapper(tabWrapper, _saveNameInput);
         _saveNameInput.accept = OpTextBox.Accept.StringASCII;
@@ -201,6 +215,19 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         _saveNameInputLabel.label.alignment = FLabelAlignment.Left;
         pages[0].subObjects.Add(_saveNameInputLabel);
 
+        VerticalSlider slugcatInfoCardsScrollBar = new(this, pages[0], "",
+            new Vector2(
+                _saveNameInputLabel.pos.x + SlugcatInfoCard.Width + 5f,
+                _saveNameInput.pos.y - 10f - (MaxShownSlugcatInfoCards - 1) * 70f - SlugcatInfoCard.Height + ScrollBarPadding
+            ),
+            new Vector2(
+                0f,
+                (MaxShownSlugcatInfoCards - 1) * 70f + SlugcatInfoCard.Height - 20f - ScrollBarPadding * 2f
+            ),
+            slugcatInfoCardsScrollBarId, true
+        );
+        pages[0].subObjects.Add(slugcatInfoCardsScrollBar);
+
         string saveDir = Application.persistentDataPath;
         if (manager.rainWorld.progression.saveFileDataInMemory.overrideBaseDir is not null)
             saveDir = manager.rainWorld.progression.saveFileDataInMemory.overrideBaseDir;
@@ -211,7 +238,8 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         UpdateInfoCards();
 
         // puts it in the middle
-        _saveButtonsScroll = 8 - manager.rainWorld.options.saveSlot;
+        _saveButtonsScroll = MaxShownSaveButtons / 2 - manager.rainWorld.options.saveSlot;
+        _slugcatInfoCardsScroll = MaxShownSlugcatInfoCards / 2;
     }
 
     private string GetSaveSlotName(int slot) =>
@@ -252,11 +280,25 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         }
     }
 
-    public override float ValueOfSlider(Slider slider) =>
-        1f - _saveButtonsScroll / Math.Min(16f - _saveButtons.Length, 0f);
+    public override float ValueOfSlider(Slider slider) {
+        if (slider.ID == saveButtonsScrollBarId)
+            return 1f - _saveButtonsScroll / Math.Min(MaxShownSaveButtons - _saveButtons.Length, 0f);
+        if (slider.ID == slugcatInfoCardsScrollBarId)
+            return 1f - _slugcatInfoCardsScroll / Math.Min(MaxShownSlugcatInfoCards - _slugcatInfoCards.Count, 0f);
+        return 0f;
+    }
 
-    public override void SliderSetValue(Slider slider, float f) =>
-        _saveButtonsScroll = Mathf.FloorToInt((1f - f) * Math.Min(16f - _saveButtons.Length, 0f));
+    public override void SliderSetValue(Slider slider, float f) {
+        if (slider.ID == saveButtonsScrollBarId) {
+            _saveButtonsScroll = Mathf.FloorToInt((1f - f) * Math.Min(MaxShownSaveButtons - _saveButtons.Length, 0f));
+            return;
+        }
+        if (slider.ID == slugcatInfoCardsScrollBarId) {
+            _slugcatInfoCardsScroll =
+                Mathf.FloorToInt((1f - f) * Math.Min(MaxShownSlugcatInfoCards - _slugcatInfoCards.Count, 0f));
+            return;
+        }
+    }
 
     public override void Update() {
         base.Update();
@@ -280,17 +322,23 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         // i do it in grafupdate because i do not want to go insane using my own mod.
 
         if (manager.menuesMouseMode) {
-            if (mousePosition.x is >= 1366f / 2f - 220f / 2f and <= 1366f / 2f + 220f / 2f)
+            if (mousePosition.x is >= 1366f / 2f - SaveButtonWidth / 2f and <= 1366f / 2f + SaveButtonWidth / 2f)
                 _saveButtonsScroll += (int)Input.mouseScrollDelta.y;
+            if (mousePosition.x >= _saveNameInputLabel.pos.x &&
+                mousePosition.x <= _saveNameInputLabel.pos.x + SlugcatInfoCard.Width)
+                _slugcatInfoCardsScroll += (int)Input.mouseScrollDelta.y;
         }
 
         for (int i = 0; i < _saveButtons.Length; i++) {
             int index = i + _saveButtonsScroll;
-            if (_saveButtons[i].Selected && index is < 0 or >= 16)
+            if (_saveButtons[i].Selected && index is < 0 or >= MaxShownSaveButtons)
                 _saveButtonsScroll = Mathf.Clamp(index, 0, 15) - i;
         }
 
-        _saveButtonsScroll = Mathf.Clamp(_saveButtonsScroll, Math.Min(16 - _saveButtons.Length, 0), 0);
+        _saveButtonsScroll = Mathf.Clamp(_saveButtonsScroll, Math.Min(MaxShownSaveButtons - _saveButtons.Length, 0), 0);
+        _slugcatInfoCardsScroll = Mathf.Clamp(
+            _slugcatInfoCardsScroll, Math.Min(MaxShownSlugcatInfoCards - _slugcatInfoCards.Count, 0), 0
+        );
 
         for (int i = 0; i < _saveButtons.Length; i++) {
             SelectOneButton button = _saveButtons[i];
@@ -299,11 +347,22 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             // (except OpScrollBox, which i cant use for my use case and it sucks anyway)
             // and i cba to implement that myself
             button.pos.y = index switch {
-                < 0 => 768f - index * 40f - button.size.y,
-                >= 16 => 680f - 40f - index * 40f - button.size.y,
+                < 0 => 768f + button.size.y * 2f,
+                >= MaxShownSaveButtons => -button.size.y * 2f,
                 _ => 680f - index * 40f - button.size.y
             };
             button.lastPos.y = button.pos.y;
+        }
+
+        for (int i = 0; i < _slugcatInfoCards.Count; i++) {
+            SlugcatInfoCard card = _slugcatInfoCards[i];
+            int index = i + _slugcatInfoCardsScroll;
+            card.pos.y = index switch {
+                < 0 => 768f + SlugcatInfoCard.Height * 2f,
+                >= MaxShownSlugcatInfoCards => -SlugcatInfoCard.Height * 2f,
+                _ => _saveNameInput.pos.y - 10f - index * 70f
+            };
+            card.lastPos.y = card.pos.y;
         }
     }
 
@@ -380,7 +439,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
             _saveButtons = new SelectOneButton[maxSlot + 2];
         }
 
-        Vector2 size = new(220f, 30f);
+        Vector2 size = new(SaveButtonWidth, 30f);
         for (int i = 0; i < _saveButtons.Length; i++) {
             if (!noCreate) {
                 Vector2 pos = new(1366f / 2f - size.x / 2f, 680f - i * 40f - size.y);
@@ -423,7 +482,7 @@ public class SavesMenu : Menu.Menu, SelectOneButton.SelectOneButtonOwner, CheckB
         UpdateButtons(!isLast);
         UpdateInfoCards();
         if (isLast)
-            _saveButtonsScroll = 16 - _saveButtons.Length;
+            _saveButtonsScroll = MaxShownSaveButtons - _saveButtons.Length;
     }
 
     private void HandleSaveSlotChangeFailed(ProgressionLoadResult result) {
