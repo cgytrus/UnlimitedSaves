@@ -62,6 +62,7 @@ public partial class Plugin : BaseUnityPlugin {
 
         // vanilla backups only a select few hardcoded files, so we take the matters in our own hands
         On.PlayerProgression.CreateCopyOfSaves_bool += BackupFix;
+        On.Menu.BackupManager.RestoreSaveFile += RestoreFix;
 
         On.Options.ApplyOption += LoadSaveName;
         On.Options.ToString += SaveSaveNames;
@@ -87,6 +88,28 @@ public partial class Plugin : BaseUnityPlugin {
             if (!isSav && !isExpCore && !isExp)
                 continue;
             self.CopySaveFile(file, dir);
+        }
+    }
+
+    private static void RestoreFix(On.Menu.BackupManager.orig_RestoreSaveFile orig, BackupManager self,
+        string sourceName) {
+        orig(self, sourceName);
+        // TODO: more future proof way to do this
+        if (sourceName != "exp1")
+            return;
+        logger.LogInfo("restoring extra saves");
+        foreach (string filePath in Directory.GetFiles(self.backupDirectories[self.selectedBackup])) {
+            string file = Path.GetFileName(filePath);
+            // ignore files already restored by vanilla
+            bool isSav = file.StartsWith("sav", StringComparison.Ordinal);
+            bool isExpCore = file.StartsWith("expCore", StringComparison.Ordinal);
+            bool isExp = !isExpCore && file.StartsWith("exp", StringComparison.Ordinal);
+            isSav = isSav && int.TryParse(file.Substring(3), out int slot) && slot > 3;
+            isExpCore = isExpCore && int.TryParse(file.Substring(7), out slot) && slot > 3;
+            isExp = isExp && int.TryParse(file.Substring(3), out slot) && slot > 1;
+            if (!isSav && !isExpCore && !isExp)
+                continue;
+            orig(self, file);
         }
     }
 
