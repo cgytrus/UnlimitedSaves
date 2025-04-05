@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyTitle>Unlimited Saves</AssemblyTitle>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <Target Name="SetupRemixFolder" AfterTargets="AfterBuild">

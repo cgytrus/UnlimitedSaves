@@ -1,8 +1,8 @@
 ﻿{
     "id": "cgytrus.unlimited-saves",
     "name": "Unlimited Saves",
-    "version": "1.1.0",
-    "target_game_version": "v1.9.15b",
+    "version": "1.2.0",
+    "target_game_version": "v1.10.1",
     "authors": "ConfiG",
     "description": "Adds a \"Saves\" menu that allows you to quickly change and inspect save slots with ability to create more than 3.\nSource code: https://github.com/cgytrus/UnlimitedSaves",
     "tags": ["Tools"],
